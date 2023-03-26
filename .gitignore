@@ -1,0 +1,5 @@
+*.o
+router
+.vscode/
+*.pdf
+*.txt
