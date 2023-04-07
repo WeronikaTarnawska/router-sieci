@@ -5,6 +5,7 @@
 #include <strings.h>
 #include <stdio.h>
 #include <poll.h>
+#include <stdbool.h>
 #include "router.h"
 
 int create_socket()
@@ -28,7 +29,7 @@ void bind_socket(int sockfd, int port, int addr)
     printf("ok");
 }
 
-void receive_packet(int sockfd)
+int receive_packet(int sockfd)
 {
     struct sockaddr_in sender;
     socklen_t sender_len = sizeof(sender);
@@ -40,15 +41,20 @@ void receive_packet(int sockfd)
     if (ready < 0)
         panic("poll: [receive_packet]: err");
     if (ready == 0)
+    {
         fprintf(stderr, "poll: [receive_packets]: timeout");
+        return false;
+    }
     ssize_t packet_len = recvfrom(sockfd, buf, IP_MAXPACKET, MSG_DONTWAIT, (struct sockaddr *)&sender, &sender_len);
+    return true;
 }
 
-void send_packet(int sockfd){
+void send_packet(int sockfd)
+{
     struct sockaddr_in recipient;
     /* TODO recipient - uzupełnij co tam ... */
-    uint8_t buf[/*?*/0];
-    size_t buflen = /*?*/0;
+    uint8_t buf[/*?*/ 0];
+    size_t buflen = /*?*/ 0;
 
-    ssize_t bytes_sent = sendto(sockfd, buf, buflen, 0, (struct sockaddr *) &recipient, sizeof(recipient));
+    ssize_t bytes_sent = sendto(sockfd, buf, buflen, 0, (struct sockaddr *)&recipient, sizeof(recipient));
 }
