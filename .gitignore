@@ -3,3 +3,4 @@ router
 .vscode/
 *.pdf
 *.txt
+*.in
