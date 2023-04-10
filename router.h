@@ -1,10 +1,13 @@
+/* Weronika Tarnawska 331171 */
+
 #include <sys/queue.h>
 #include <stdint.h>
 #define TARGET_PORT 54321 /* we listen and broadcast here */
-#define ROUND 20 /* one round is 20 seconds */
-#define SMALL_INFTY 12345678 /* to deal with "counting to infinity" issue */
+#define ROUND 5 /* one round is 20 seconds */
+#define SMALL_INFTY 58 /* to deal with "counting to infinity" issue */
 #define INFTY 0xffffffff /* uint32_t max */
-#define TIME_TO_DIE 5 /* if network is unreachable, we broadcast about it for 5 rounds and then remove the network */
+#define TIME_TO_DIE 8 /* if network is unreachable, we broadcast about it for 5 rounds and then remove the network */
+#define TIME_TO_RESTORE 3 /*XD*/
 #define MSG_LEN 9
 
 
@@ -29,7 +32,7 @@ void broadcasting(int sockfd, queue_t *qall, queue_t *qdir);
 void cleanup(queue_t *qall);
 void loop(int sockfd, queue_t *qall, queue_t *qdir);
 void read_config(queue_t *tq, queue_t *dir);
-
+void print(entry_t *net);
 
 
 /* udp.c */
@@ -39,7 +42,7 @@ void receive_packet(int sockfd, entry_t *network);
 int send_packet(int sockfd, entry_t *network, entry_t *target);
 
 
-#define DEBUG
+// #define DEBUG
 #ifdef DEBUG
 #define debug(...) fprintf(stderr, __VA_ARGS__)
 #else

@@ -1,3 +1,5 @@
+/* Weronika Tarnawska 331171 */
+
 #include <stdlib.h>
 #include <arpa/inet.h>
 #include <sys/socket.h>
@@ -31,7 +33,6 @@ void bind_socket(int sockfd, int port, int addr)
     int succ = bind(sockfd, (struct sockaddr *)&server_address, sizeof(server_address));
     if (succ < 0)
         panic("bind: [bind_socket()]");
-    printf("ok");
 }
 
 void receive_packet(int sockfd, entry_t *network)
@@ -44,13 +45,19 @@ void receive_packet(int sockfd, entry_t *network)
         panic("[receive_packet] recvfrom: error");
     if (packet_len < MSG_LEN) // FIXME
     {
-        panic("[receive_packet] recvfrom: wrong format"); // CHECKIT może to nie tak działa
+        panic("[receive_packet] recvfrom: wrong format");
     }
     // TODO jakieś sprawdzanie czy to ten pakiet który chcieliśmy
+    // *XD* jak nie odbierać paczek od siebie?
     network->ip_addr = *(uint32_t *)buf;
     network->mask = *(uint8_t *)(buf + 4);
     network->dist = *(uint32_t *)(buf + 5);
-    network->via = ntohl(sender.sin_addr.s_addr);
+    network->via = sender.sin_addr.s_addr;
+
+    network->reachable = 1;
+    debug("[receive_packet]\n");
+    // print(network);
+
 }
 
 // int receive_packet(int sockfd)
@@ -76,19 +83,28 @@ void receive_packet(int sockfd, entry_t *network)
 int send_packet(int sockfd, entry_t *network, entry_t *target)
 {
     uint8_t buf[MSG_LEN];
-    *buf = network->ip_addr;
+    *(uint32_t*)buf = network->ip_addr;
     *(buf+4) = network->mask;
-    *(buf+5) = network->dist;
+    *(uint32_t*)(buf+5) = network->dist;
 
     struct sockaddr_in recipient;
     bzero(&recipient, sizeof(recipient));
     recipient.sin_family = AF_INET;
     recipient.sin_port = htons(TARGET_PORT);
-    recipient.sin_addr.s_addr = htonl(target->ip_addr);
+
+    uint32_t ip = htonl(target->ip_addr);
+    ip = ip | ~((0xFFFFFFFF << (32 - target->mask)) & 0xFFFFFFFF);
+    recipient.sin_addr.s_addr = htonl(ip);
+    // recipient.sin_addr.s_addr = htonl(target->ip_addr);
+    // debug("[send_packet] mask = %8.x,  target ip %d, hex = %8.x\n",((0xFFFFFFFF << (32 - target->mask)) & 0xFFFFFFFF),  ip, ip);
+    char ipstr[20];
+    if (!inet_ntop(AF_INET, &recipient.sin_addr.s_addr, ipstr, sizeof(ipstr)))
+        panic("[print] inet_ntop error");
+      debug("[send_packet] ip string = %s\n", ipstr);
 
     ssize_t bytes_sent = sendto(sockfd, buf, MSG_LEN, 0, (struct sockaddr *)&recipient, sizeof(recipient));
     if (bytes_sent < 0){
-        panic("[send_packet] sendto error"); // CHECKIT
+        debug("[send_packet] sendto error\n");
         return false;
     }
     return true;
