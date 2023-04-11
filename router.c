@@ -43,6 +43,7 @@ void sigint_handler(int signum) {
 }
 
 void listening(int sockfd, queue_t *qall, queue_t *qdir) {
+  debug("listening...\n");
   fd_set readfds;
   FD_ZERO(&readfds);
   FD_SET(sockfd, &readfds);
@@ -50,12 +51,11 @@ void listening(int sockfd, queue_t *qall, queue_t *qdir) {
   timeout.tv_sec = ROUND;
   timeout.tv_usec = 0;
   while (true) {
-    debug("listening...\n");
     int ready = select(sockfd + 1, &readfds, NULL, NULL, &timeout);
     if (ready < 0)
       panic("[listening] select: error");
     if (ready == 0) {
-      debug("[listening] select: timeout\n");
+      // debug("[listening] select: timeout\n");
       return;
     }
     entry_t packet;
@@ -65,43 +65,46 @@ void listening(int sockfd, queue_t *qall, queue_t *qdir) {
 }
 
 void update(entry_t *packet, queue_t *qall, queue_t *qdir) {
-  debug("update: ip=%d, via=%d, dist=%d\n", packet->ip_addr, packet->via,
-        packet->dist);
+
   entry_t *sender;
   uint8_t found = false;
   TAILQ_FOREACH (sender, qdir, direct) {
     if (sender->ip_addr == packet->via) {
-      sender->cnt = TIME_TO_DIE;
       found = true;
-      sender->reachable=true;
-      sender->via=0;
+      sender->cnt = TIME_TO_DIE;
+      sender->reachable = true;
+      sender->via = 0;
+      sender->dist = sender->prev_dist;
+      if (packet->ip_addr == sender->ip_addr)
+        return;
       break;
     }
   }
-  debug("found = %d\n", found);
   if (!found)
     return;
-  
 
   entry_t *entry;
   TAILQ_FOREACH (entry, qall, all) {
     if (entry->ip_addr == packet->ip_addr && entry->mask == packet->mask) {
+      /* error */
       if (packet->dist == INFTY) {
         if (entry->reachable && packet->via == entry->via) {
           entry->reachable = false;
           entry->dist = INFTY;
           entry->cnt = TIME_TO_DIE;
         }
-      } else if (entry->dist > packet->dist + sender->dist) {
+      }
+      /* better route */
+      else if (entry->dist > packet->dist + sender->dist) {
         if (!entry->reachable) {
           if (entry->cnt > TIME_TO_RESTORE)
             return;
         }
-        if (entry->via == 0 && packet->via != packet->ip_addr &&
-            entry->reachable) {
-          panic("[update] xdddd "); // *XD*
-          return;
-        }
+        // if (entry->via == 0 && packet->via != packet->ip_addr &&
+        //     entry->reachable) {
+        //   panic("[update] xdddd "); // *XD*
+        //   return;
+        // }
         if (packet->via != packet->ip_addr)
           entry->via = packet->via;
         else {
@@ -126,8 +129,7 @@ void update(entry_t *packet, queue_t *qall, queue_t *qdir) {
     TAILQ_INSERT_TAIL(qall, entry, all);
     if (packet->via == packet->ip_addr) {
       entry->via = 0;
-      // TAILQ_INSERT_TAIL(qdir, entry, direct); // CHECKIT nie usuwamy
-      // bezpośrednich?
+      panic("xd++");
     }
   }
 }
@@ -137,11 +139,12 @@ void kill_neighbour(entry_t *net, queue_t *qall) {
   net->cnt = TIME_TO_DIE;
   net->dist = INFTY;
   entry_t *e;
-  TAILQ_FOREACH(e, qall, all){
-    if(e->via==net->ip_addr){
-      e->reachable=false;
-      e->cnt=TIME_TO_DIE;
-      // e->dist=INFTY;
+  TAILQ_FOREACH (e, qall, all) {
+    if (e->via == net->ip_addr) {
+      debug(":)\n");
+      e->reachable = false;
+      e->cnt = TIME_TO_DIE;
+      e->dist = INFTY;
     }
   }
 }
@@ -176,6 +179,7 @@ void cleanup(queue_t *qall) {
                                         havent heard from him for some time */
     {
       e->cnt--;
+      debug("$\n");
       if (e->cnt == 0) {
         kill_neighbour(e, qall);
       }
@@ -257,10 +261,24 @@ void read_config(queue_t *tq, queue_t *dir) {
     network->reachable = true;
     network->via = 0;
     network->cnt = TIME_TO_DIE;
+    network->prev_dist = network->dist;
     TAILQ_INSERT_TAIL(tq, network, all);
     TAILQ_INSERT_TAIL(dir, network, direct);
   }
 }
+
+// void get_my_ip() {
+//   struct ifaddrs *ifaddr;
+
+//   if (getifaddrs(&ifaddr) == -1) {
+//     panic("[get_my_ip] getifaddrs error");
+//   }
+
+//   for (struct ifaddrs *ifa = ifaddr; ifa != NULL; ifa = ifa->ifa_next) {
+//     if (ifa->ifa_addr == NULL)
+//       continue;
+//   }
+// }
 
 int main() {
   signal(SIGINT, sigint_handler);
@@ -270,18 +288,21 @@ int main() {
   TAILQ_INIT(&qdir);
   read_config(&qall, &qdir);
 
-  debug("config ok :)\n");
-
   int sockfd = create_socket();
   bind_socket(sockfd, TARGET_PORT, INADDR_ANY);
 
   loop(sockfd, &qall, &qdir);
 
-  debug(":)\n");
   return 0;
 }
 
-// 1. jak umiera to 
-// *  sąsiedzi ją znikają
-// *  i wysyłają do innych że jej nie ma 
-// *  
+// 1. jak umiera to
+// *  sąsiedzi ją znikają (jak długo od niej nic nie dostają lub jak sendto
+// nie wyjdzie)
+// *  i wysyłają do innych że jej nie ma
+// *  i oznaczają wszystkich którzy mieli ją po drodze na niedostępnych
+
+// 2. jak wstaje
+// *  wysyła co ma w tablicy
+// *  sąsiedzi to dostają i wiedzą że żyje (i przywracają oryginalny dystans)
+// *
