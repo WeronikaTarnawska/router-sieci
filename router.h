@@ -15,7 +15,7 @@ typedef struct entry { /* we store network data here */
   uint8_t mask;
   uint32_t dist; /* distance to network */
   uint8_t reachable;
-  uint32_t via;       /* next ip address on route to this network or 0 if connected directly */
+  uint32_t via;       /* next ip address on route to this network */
   uint32_t cnt;       /* if directly connected means number of rounds since we last heard from this network, else if not
                          reachable means time to die */
   uint32_t prev_dist; /* original distance to direct network */

@@ -1,24 +1,11 @@
 /* Weronika Tarnawska 331171 */
 
-// #include <sys/cdefs.h>
 #include <arpa/inet.h>
-// #include <netinet/ip.h>
-// #include <netinet/ip_icmp.h>
 #include <sys/types.h>
-// #include <sys/select.h>
-// #include <sys/socket.h>
-// #include <netinet/in.h>
-// #include <netinet/in_systm.h>
-// #include <sys/time.h>
 #include <assert.h>
-// #include <stdio.h>
-// #include <stdlib.h>
 #include <string.h>
-// #include <strings.h>
 #include <errno.h>
 #include <unistd.h>
-// #include <netinet/ip.h>
-// #include<aio.h>
 #include <stdbool.h>
 
 #include <stdio.h>
@@ -161,7 +148,7 @@ void cleanup(queue_t *qall) {
     entry_t *e2;
     e2 = TAILQ_NEXT(e, all);
     /* anty counting to infinity */
-    if (e->reachable && e->dist >= SMALL_INFTY) { /*XD*/
+    if (e->reachable && e->dist >= SMALL_INFTY) { /*XD* to się nigdy nie dzieje chyba ...*/
       e->reachable = false;
       e->dist = INFTY;
       e->cnt = TIME_TO_DIE;
