@@ -16,8 +16,7 @@ int create_socket() {
   if (sockfd < 0)
     panic("socket: [create_socket()]");
   int broadcastPermission = 1;
-  setsockopt(sockfd, SOL_SOCKET, SO_BROADCAST, (void *)&broadcastPermission,
-             sizeof(broadcastPermission));
+  setsockopt(sockfd, SOL_SOCKET, SO_BROADCAST, (void *)&broadcastPermission, sizeof(broadcastPermission));
   return sockfd;
 }
 
@@ -27,8 +26,7 @@ void bind_socket(int sockfd, int port, int addr) {
   server_address.sin_family = AF_INET;
   server_address.sin_port = htons(port);
   server_address.sin_addr.s_addr = htonl(addr);
-  int succ =
-    bind(sockfd, (struct sockaddr *)&server_address, sizeof(server_address));
+  int succ = bind(sockfd, (struct sockaddr *)&server_address, sizeof(server_address));
   if (succ < 0)
     panic("bind: [bind_socket()]");
 }
@@ -37,45 +35,19 @@ void receive_packet(int sockfd, entry_t *network) {
   struct sockaddr_in sender;
   socklen_t sender_len = sizeof(sender);
   uint8_t buf[IP_MAXPACKET];
-  ssize_t packet_len = recvfrom(sockfd, buf, IP_MAXPACKET, MSG_DONTWAIT,
-                                (struct sockaddr *)&sender, &sender_len);
+  ssize_t packet_len = recvfrom(sockfd, buf, IP_MAXPACKET, MSG_DONTWAIT, (struct sockaddr *)&sender, &sender_len);
   if (packet_len < 0)
     panic("[receive_packet] recvfrom: error");
-  if (packet_len < MSG_LEN) // FIXME
-  {
+  if (packet_len < MSG_LEN) {
     panic("[receive_packet] recvfrom: wrong format");
   }
-  // TODO jakieś sprawdzanie czy to ten pakiet który chcieliśmy
-  // *XD* jak nie odbierać paczek od siebie?
   network->ip_addr = *(uint32_t *)buf;
   network->mask = *(uint8_t *)(buf + 4);
   network->dist = *(uint32_t *)(buf + 5);
   network->via = sender.sin_addr.s_addr;
-  
   network->reachable = 1;
-//   debug("[receive_packet]\n");
-//   print(network);
 }
 
-// int receive_packet(int sockfd)
-// {
-//     struct sockaddr_in sender;
-//     socklen_t sender_len = sizeof(sender);
-//     uint8_t buf[IP_MAXPACKET];
-//     struct pollfd fds;
-//     fds.fd = sockfd;
-//     fds.events = POLLIN;
-//     int ready = poll(&fds, 1, 1000);
-//     if (ready < 0)
-//         panic("poll: [receive_packet]: err");
-//     if (ready == 0)
-//     {
-//         fprintf(stderr, "poll: [receive_packets]: timeout");
-//         return false;
-//     }
-//     ssize_t packet_len = recvfrom(sockfd, buf, IP_MAXPACKET, MSG_DONTWAIT,
-//     (struct sockaddr *)&sender, &sender_len); return true;
-// }
 
 int send_packet(int sockfd, entry_t *network, entry_t *target) {
   uint8_t buf[MSG_LEN];
@@ -89,13 +61,8 @@ int send_packet(int sockfd, entry_t *network, entry_t *target) {
   recipient.sin_port = htons(TARGET_PORT);
 
   recipient.sin_addr.s_addr = get_broadcast_ip(target->ip_addr, target->mask);
-  // char ipstr[20];
-  // if (!inet_ntop(AF_INET, &recipient.sin_addr.s_addr, ipstr, sizeof(ipstr)))
-  //   panic("[print] inet_ntop error");
-  // debug("[send_packet] ip string = %s\n", ipstr);
 
-  ssize_t bytes_sent = sendto(sockfd, buf, MSG_LEN, 0,
-                              (struct sockaddr *)&recipient, sizeof(recipient));
+  ssize_t bytes_sent = sendto(sockfd, buf, MSG_LEN, 0, (struct sockaddr *)&recipient, sizeof(recipient));
   if (bytes_sent < 0) {
     debug("[send_packet] sendto error\n");
     return false;

@@ -65,7 +65,7 @@ void listening(int sockfd, queue_t *qall, queue_t *qdir) {
 }
 
 void update(entry_t *packet, queue_t *qall, queue_t *qdir) {
-
+  /* find sender, set him reachable */
   entry_t *sender;
   uint8_t found = false;
   TAILQ_FOREACH (sender, qdir, direct) {
@@ -75,18 +75,20 @@ void update(entry_t *packet, queue_t *qall, queue_t *qdir) {
       sender->reachable = true;
       sender->via = 0;
       sender->dist = sender->prev_dist;
+
       if (packet->ip_addr == sender->ip_addr)
         return;
       break;
     }
-  }
+  } 
   if (!found)
     return;
 
+  /* find network you got info about */
   entry_t *entry;
   TAILQ_FOREACH (entry, qall, all) {
-    if (entry->ip_addr == packet->ip_addr && entry->mask == packet->mask) {
-      /* error */
+    if (get_network_ip(entry->ip_addr, entry->mask) == get_network_ip(packet->ip_addr, packet->mask)) {
+      /* no connection */
       if (packet->dist == INFTY) {
         if (entry->reachable && packet->via == entry->via) {
           entry->reachable = false;
@@ -100,24 +102,16 @@ void update(entry_t *packet, queue_t *qall, queue_t *qdir) {
           if (entry->cnt > TIME_TO_RESTORE)
             return;
         }
-        // if (entry->via == 0 && packet->via != packet->ip_addr &&
-        //     entry->reachable) {
-        //   panic("[update] xdddd "); // *XD*
-        //   return;
-        // }
-        if (packet->via != packet->ip_addr)
-          entry->via = packet->via;
-        else {
-          entry->via = 0;
-          panic("[update] xd"); // *XD*
-        }
+        entry->via = packet->via;
         entry->dist = packet->dist + sender->dist;
+        entry->ip_addr = packet->ip_addr;
         entry->reachable = true;
         entry->cnt = TIME_TO_DIE;
       }
       return;
     }
   }
+  /* new network */
   if (packet->dist != INFTY) {
     entry = malloc(sizeof(entry_t));
     entry->dist = packet->dist + sender->dist;
@@ -126,11 +120,8 @@ void update(entry_t *packet, queue_t *qall, queue_t *qdir) {
     entry->via = packet->via;
     entry->reachable = true;
     entry->cnt = TIME_TO_DIE;
+    entry->prev_dist = 0;
     TAILQ_INSERT_TAIL(qall, entry, all);
-    if (packet->via == packet->ip_addr) {
-      entry->via = 0;
-      panic("xd++");
-    }
   }
 }
 
@@ -141,7 +132,6 @@ void kill_neighbour(entry_t *net, queue_t *qall) {
   entry_t *e;
   TAILQ_FOREACH (e, qall, all) {
     if (e->via == net->ip_addr) {
-      debug(":)\n");
       e->reachable = false;
       e->cnt = TIME_TO_DIE;
       e->dist = INFTY;
@@ -168,24 +158,20 @@ void cleanup(queue_t *qall) {
   while (e) {
     entry_t *e2;
     e2 = TAILQ_NEXT(e, all);
-
-    if (e->reachable &&
-        e->dist >= SMALL_INFTY) { // *XD* /* anty counting to infinity */
+    /* anty counting to infinity */
+    if (e->reachable && e->dist >= SMALL_INFTY) { /*XD*/
       e->reachable = false;
       e->dist = INFTY;
       e->cnt = TIME_TO_DIE;
     }
-    if (e->via == 0 && e->reachable) /* report neighbour unreachable if you
-                                        havent heard from him for some time */
-    {
+    /* report neighbour unreachable if you havent heard from him for some time */
+    if (e->via == 0 && e->reachable) {
       e->cnt--;
-      debug("$\n");
       if (e->cnt == 0) {
         kill_neighbour(e, qall);
       }
-    } else if (!e->reachable &&
-               e->via != 0) /* remove unreachable networks after a few rounds */
-    {
+      /* remove unreachable networks after a few rounds */
+    } else if (!e->reachable && e->via != 0) {
       e->cnt--;
       if (e->cnt == 0)
         TAILQ_REMOVE(qall, e, all);
@@ -198,7 +184,8 @@ void cleanup(queue_t *qall) {
 
 void print(entry_t *net) {
   char ipstr[20];
-  if (!inet_ntop(AF_INET, &net->ip_addr, ipstr, sizeof(ipstr)))
+  uint32_t ip = get_network_ip(net->ip_addr, net->mask);
+  if (!inet_ntop(AF_INET, &ip, ipstr, sizeof(ipstr)))
     panic("[print] inet_ntop error");
   printf("%s/%d distance %d ", ipstr, net->mask, net->dist);
   if (!net->reachable) {
@@ -212,24 +199,20 @@ void print(entry_t *net) {
   }
 }
 
-//  git branch -m <name>
-
 void loop(int sockfd, queue_t *qall, queue_t *qdir) {
   int r = 0;
   while (true) {
-    debug(
-      "=================================================================\n");
+    debug("=================================================================\n");
     entry_t *net;
     TAILQ_FOREACH (net, qall, all) {
       print(net);
     }
-    debug(
-      "=================================================================\n");
+    debug("=================================================================\n");
 
     printf("\n");
 
     r++;
-    printf("************   %d   ************\n", r);
+    printf("*****************    %d    *****************\n", r);
 
     listening(sockfd, qall, qdir);
     broadcasting(sockfd, qall, qdir);
@@ -267,19 +250,6 @@ void read_config(queue_t *tq, queue_t *dir) {
   }
 }
 
-// void get_my_ip() {
-//   struct ifaddrs *ifaddr;
-
-//   if (getifaddrs(&ifaddr) == -1) {
-//     panic("[get_my_ip] getifaddrs error");
-//   }
-
-//   for (struct ifaddrs *ifa = ifaddr; ifa != NULL; ifa = ifa->ifa_next) {
-//     if (ifa->ifa_addr == NULL)
-//       continue;
-//   }
-// }
-
 int main() {
   signal(SIGINT, sigint_handler);
   queue_t qall;
@@ -295,14 +265,3 @@ int main() {
 
   return 0;
 }
-
-// 1. jak umiera to
-// *  sąsiedzi ją znikają (jak długo od niej nic nie dostają lub jak sendto
-// nie wyjdzie)
-// *  i wysyłają do innych że jej nie ma
-// *  i oznaczają wszystkich którzy mieli ją po drodze na niedostępnych
-
-// 2. jak wstaje
-// *  wysyła co ma w tablicy
-// *  sąsiedzi to dostają i wiedzą że żyje (i przywracają oryginalny dystans)
-// *
