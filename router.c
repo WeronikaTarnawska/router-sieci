@@ -80,7 +80,7 @@ void update(entry_t *packet, queue_t *qall, queue_t *qdir) {
         return;
       break;
     }
-  } 
+  }
   if (!found)
     return;
 
@@ -126,15 +126,17 @@ void update(entry_t *packet, queue_t *qall, queue_t *qdir) {
 }
 
 void kill_neighbour(entry_t *net, queue_t *qall) {
-  net->reachable = false;
   net->cnt = TIME_TO_DIE;
   net->dist = INFTY;
-  entry_t *e;
-  TAILQ_FOREACH (e, qall, all) {
-    if (e->via == net->ip_addr) {
-      e->reachable = false;
-      e->cnt = TIME_TO_DIE;
-      e->dist = INFTY;
+  if (net->reachable) {
+    net->reachable = false;
+    entry_t *e;
+    TAILQ_FOREACH (e, qall, all) {
+      if (e->via == net->ip_addr) {
+        e->reachable = false;
+        e->cnt = TIME_TO_DIE;
+        e->dist = INFTY;
+      }
     }
   }
 }
