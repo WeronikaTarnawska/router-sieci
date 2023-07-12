@@ -16,4 +16,4 @@ clean:
 	rm -f *.o
 
 distclean:
-	rm -f *.o router
+	rm -f *.o router 
