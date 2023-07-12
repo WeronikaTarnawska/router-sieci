@@ -1,6 +1,6 @@
 *.o
 router
 .vscode/
-*.pdf
 *.txt
 *.in
+*.tar.xz

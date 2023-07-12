@@ -163,7 +163,7 @@ void cleanup(queue_t *qall) {
     } else if (!e->reachable && e->via != 0) {
       e->cnt--;
       if (e->cnt == 0)
-        TAILQ_REMOVE(qall, e, all);
+        TAILQ_REMOVE(qall, e, all); // TODO free(e);
     } else if (!e->reachable && e->cnt > 0) {
       e->cnt--;
     }
@@ -174,6 +174,7 @@ void cleanup(queue_t *qall) {
 void print(entry_t *net) {
   char ipstr[20];
   uint32_t ip = get_network_ip(net->ip_addr, net->mask);
+  // uint32_t ip = net->ip_addr;
   if (!inet_ntop(AF_INET, &ip, ipstr, sizeof(ipstr)))
     panic("[print] inet_ntop error");
   printf("%s/%d distance %d ", ipstr, net->mask, net->dist);
